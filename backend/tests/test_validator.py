@@ -5,7 +5,6 @@ Tests Level 1 (statistical) only — no AI calls in unit tests.
 Run: pytest backend/tests/ -v
 """
 import pytest
-import asyncio
 from backend.rag.corrective_action_validator import (
     CorrectiveActionValidator,
     ValidatorConfig,

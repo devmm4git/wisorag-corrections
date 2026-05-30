@@ -1,6 +1,8 @@
 """
 WISO-AI — Corrective Action Quality Validator
 ADR-001 v2: Language-agnostic, AI-first, scalable validator.
+Last updated: M2 Sprint 1 — May 2026
+Reviewed by: wmssaas-project
 
 Design principles:
 - No hardcoded word lists (fragile, language-specific)

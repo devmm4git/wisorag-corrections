@@ -138,15 +138,14 @@ async def insert_to_alloydb(
     Uses ON CONFLICT DO NOTHING for idempotency — safe to re-run.
     """
     logger.info(f"Connecting to AlloyDB {settings.alloydb_host}...")
-    connection_string = (
-        f"postgresql://{settings.alloydb_user}:"
-        f"{settings.alloydb_password}@"
-        f"{settings.alloydb_host}:"
-        f"{settings.alloydb_port}/"
-        f"{settings.alloydb_database}"
+    pool = await asyncpg.create_pool(
+        host=settings.alloydb_host,
+        port=settings.alloydb_port,
+        database=settings.alloydb_database,
+        user=settings.alloydb_user,
+        password=settings.alloydb_password,
+        ssl='require',
     )
-
-    pool = await asyncpg.create_pool(connection_string)
 
     insert_query = """
         INSERT INTO corrective_actions_vectors (

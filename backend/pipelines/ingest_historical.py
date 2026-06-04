@@ -262,6 +262,30 @@ async def run_pipeline():
         logger.error("No records fetched from BigQuery. Aborting.")
         return
 
+    # ── Step 1.5: Validate fields (Level 1/2/3) ────────────────────────────
+    logger.info(f"Validating fields for {len(records)} records...")
+    field_validator = CorrectiveActionFieldValidator()
+    field_valid_records = []
+    for record in records:
+        result = field_validator.validate(record)
+        if result is None:
+            field_valid_records.append(record)
+        else:
+            logger.warning(
+                f"[{record.get('concern_id')}] "
+                f"Skipped — {result.reason}"
+            )
+    logger.info(
+        f"Field validation: {len(field_valid_records)}/{len(records)} "
+        f"records passed Level 1"
+    )
+    records = field_valid_records
+
+    if not records:
+        logger.error("No records passed field validation. Aborting.")
+        return
+    
+    
     # ── Step 2: Validate (ADR-001) ─────────────────────────────────────────
     logger.info(f"Validating {len(records)} corrective actions (ADR-001)...")
     validator_config = ValidatorConfig(

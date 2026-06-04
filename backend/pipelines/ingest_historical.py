@@ -83,7 +83,7 @@ def build_chunk_text(record: dict) -> str:
     Build semantic chunk text for embedding.
     ONLY Concern + Corrective Action — NO metadata.
     Metadata goes as separate columns for hard filters (WHERE clause).
-    
+
     Design decision (ADR-002):
     - Embedding = semantic meaning of the problem + solution
     - Metadata = department, plant, product_line (hard filters)

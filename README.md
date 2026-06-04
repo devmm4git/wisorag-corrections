@@ -1,7 +1,3 @@
-# wisorag-corrections
-
-wiso rag corrections
-
 # WISO-AI — RAG System for WISOHUB
 
 **Client:** FXVIEW Company  

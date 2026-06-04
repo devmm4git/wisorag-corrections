@@ -18,7 +18,7 @@ Owner: rag-dataengineer@mm4.me
 Milestone: M2 — Task 2.7
 Called by: backend/app/routers/corrective_actions.py (M3)
 """
-import asyncio
+
 import logging
 from dataclasses import dataclass
 from typing import Optional

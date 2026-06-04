@@ -77,23 +77,35 @@ def fetch_from_bigquery() -> list[dict]:
 
 
 # ── Step 2: Build chunk text ───────────────────────────────────────────────────
+# ── Step 2: Build chunk text ───────────────────────────────────────────────────
 def build_chunk_text(record: dict) -> str:
     """
-    Build enriched chunk text for embedding.
-    Combines metadata + concern + corrective action
-    for maximum semantic richness.
+    Build semantic chunk text for embedding.
+    ONLY Concern + Corrective Action — NO metadata.
+    Metadata goes as separate columns for hard filters (WHERE clause).
+
+    Design decision (ADR-002):
+    - Embedding = semantic meaning of the problem + solution
+    - Metadata = department, plant, product_line (hard filters)
+    This separation allows: WHERE department='PAINT' ORDER BY embedding <=> query
     """
-    return f"""
-Department: {record.get('department', 'N/A')}
-Plant: {record.get('plant', 'N/A')}
-Severity: {record.get('severity', 'N/A')}
-Collection Point: {record.get('collection_point', 'N/A')}
-Product Line: {record.get('product_line', 'N/A')}
+    concern = record.get('concern_description', '').strip()
+    corrective = record.get('corrective_action', '').strip()
+    return f"Concern: {concern}\n\nCorrective Action: {corrective}"
 
-Concern: {record.get('concern_description', '')}
 
-Corrective Action: {record.get('corrective_action', '')}
-    """.strip()
+# ── Step 2b: Build chunk ID ────────────────────────────────────────────────────
+def build_chunk_id(record: dict) -> str:
+    """
+    Build semantic chunk ID for cross-system tracking.
+    Format: DEPARTMENT_PRODUCTLINE_CONCERNID
+    Example: PAINT_RANGER_C001
+    Used in BigQuery feedback_log as FK.
+    """
+    dept = record.get('department', 'UNK').replace(' ', '').upper()
+    pl = record.get('product_line', 'UNK').replace(' ', '').upper()
+    cid = record.get('concern_id', 'UNK').upper()
+    return f"{dept}_{pl}_{cid}"
 
 
 # ── Step 3: Generate embeddings ────────────────────────────────────────────────
@@ -129,6 +141,7 @@ def generate_embeddings(texts: list[str]) -> list[list[float]]:
 
 
 # ── Step 4: Insert to AlloyDB ──────────────────────────────────────────────────
+# ── Step 4: Insert to AlloyDB ──────────────────────────────────────────────────
 async def insert_to_alloydb(
     records: list[dict],
     embeddings: list[list[float]]
@@ -136,8 +149,10 @@ async def insert_to_alloydb(
     """
     Bulk insert validated records + embeddings into AlloyDB.
     Uses ON CONFLICT DO NOTHING for idempotency — safe to re-run.
+    chunk_id is the semantic unique key for cross-system tracking.
     """
     logger.info(f"Connecting to AlloyDB {settings.alloydb_host}...")
+
     pool = await asyncpg.create_pool(
         host=settings.alloydb_host,
         port=settings.alloydb_port,
@@ -149,14 +164,18 @@ async def insert_to_alloydb(
 
     insert_query = """
         INSERT INTO corrective_actions_vectors (
+            chunk_id,
             concern_id, plant, department,
             concern_description, corrective_action,
             severity, collection_point, product_line,
+            charged_zone,
             chunk_text, embedding
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::vector
+            $1,
+            $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12::vector
         )
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (chunk_id) DO NOTHING
     """
 
     inserted = 0
@@ -165,11 +184,13 @@ async def insert_to_alloydb(
     async with pool.acquire() as conn:
         for record, embedding in zip(records, embeddings):
             try:
+                chunk_id = build_chunk_id(record)
                 chunk_text = build_chunk_text(record)
                 embedding_str = f"[{','.join(map(str, embedding))}]"
 
                 await conn.execute(
                     insert_query,
+                    chunk_id,
                     record.get('concern_id'),
                     record.get('plant'),
                     record.get('department'),
@@ -178,10 +199,12 @@ async def insert_to_alloydb(
                     record.get('severity'),
                     record.get('collection_point'),
                     record.get('product_line'),
+                    record.get('charged_zone'),
                     chunk_text,
                     embedding_str
                 )
                 inserted += 1
+                logger.info(f"Inserted: {chunk_id}")
 
             except Exception as e:
                 logger.error(

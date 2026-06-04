@@ -46,12 +46,15 @@ CREATE TABLE corrective_actions_vectors (
 );
 
 -- Índice HNSW para búsqueda semántica <100ms
--- (se crea en Task 2.5)
--- CREATE INDEX idx_embedding_hnsw
---   ON corrective_actions_vectors
---   USING hnsw (embedding vector_cosine_ops)
---   WITH (m = 16, ef_construction = 64);
+-- m=16: conexiones por nodo (balance precisión/memoria)
+-- ef_construction=64: calidad del índice en construcción
+-- vector_cosine_ops: similitud coseno para embeddings de texto
 
+CREATE INDEX idx_embedding_hnsw
+  ON corrective_actions_vectors
+  USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
+  
 -- Índices para filtros duros
 CREATE INDEX idx_department
     ON corrective_actions_vectors (department);

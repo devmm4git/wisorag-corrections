@@ -526,6 +526,38 @@ class CorrectiveActionFieldValidator:
     ├── resolved_at         → when the concern was resolved
     └── mttr_minutes        → Mean Time To Resolve
 
+    L1 — EMBEDDING (el corazón del RAG)
+    │
+    │   chunk_text = "Concern: [concern_description]
+    │                 Corrective Action: [corrective_action]"
+    │                         ↓
+    │               Vertex AI text-embedding-004
+    │                         ↓
+    │               vector(768) → AlloyDB
+    │
+    │   Sin L1 → NO hay vector → NO hay RAG → rechazo duro ❌
+
+    L2 — FILTROS DUROS (la precisión del RAG)
+    │
+    │   WHERE department = 'PAINT'      ← sin esto busca en TODO
+    │   AND product_line = 'RANGER'     ← sin esto mezcla modelos
+    │
+    │   Sin L2 → el registro existe pero NUNCA aparece
+    │             en búsquedas filtradas → inútil en producción ⚠️
+
+    L3 — CONTEXTO ENRIQUECIDO (la calidad de la respuesta)
+    │
+    │   El LLM (Gemini) usa estos datos para generar
+    │   una respuesta más rica al coach:
+    │
+    │   "Esta solución fue aplicada en planta MAP,
+    │    estación 165-Q, tardó 18 minutos en resolverse,
+    │    severidad A — aplica directamente a tu caso"
+    │
+    │   Sin L3 → la respuesta funciona pero es menos específica
+    │   Con L3 → la respuesta es más contextualizada y útil ✅
+
+    -----------------------------------------------------------------------
     Used by:
       - backend/pipelines/ingest_historical.py  (Pipeline 1 — BigQuery)
       - backend/app/routers/corrective_actions.py (M3 — new CA endpoint)

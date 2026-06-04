@@ -24,7 +24,7 @@ import json
 import logging
 import re
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from typing import Optional
 
@@ -87,7 +87,7 @@ class ValidationResult:
     concern_id: str = ""
     detected_language: str = "unknown"
     rejection_level: Optional[RejectionLevel] = None
-    ai_response: Optional[dict] = field(default=None)
+    ai_response: Optional[dict] = dataclass_field(default=None)
 
     def to_api_response(self) -> dict:
         """Format for HTTP 422 API response (M3)."""
@@ -497,6 +497,129 @@ Respond with ONLY valid JSON (no markdown, no explanation):
             concern_id=concern_id,
             detected_language=detected_lang
         )
+
+
+# ── Field Validator ────────────────────────────────────────────────────────────
+class CorrectiveActionFieldValidator:
+    """
+    WISO-AI — Field-level validator for corrective action records.
+    Runs BEFORE semantic validation (ADR-001).
+
+    Three levels of field requirements:
+
+    LEVEL 1 — REQUIRED (record rejected if missing):
+    ├── concern_id          → uniquely identifies the record
+    ├── concern_description → without this, no semantic embedding possible
+    └── corrective_action   → without this, no semantic embedding possible
+
+    LEVEL 2 — QUASI-REQUIRED / HARD FILTERS (degrade RAG if missing):
+    ├── department          → primary filter — VERY IMPORTANT
+    └── product_line        → secondary filter — IMPORTANT
+        If missing: record enters AlloyDB but will NEVER appear
+        in retrieval results filtered by these fields.
+
+    LEVEL 3 — ENRICHED CONTEXT (optional, nice-to-have):
+    ├── plant               → location context
+    ├── severity            → urgency context
+    ├── collection_point    → physical location within plant
+    ├── charged_zone        → team responsibility context
+    ├── resolved_at         → when the concern was resolved
+    └── mttr_minutes        → Mean Time To Resolve
+
+    Used by:
+      - backend/pipelines/ingest_historical.py  (Pipeline 1 — BigQuery)
+      - backend/app/routers/corrective_actions.py (M3 — new CA endpoint)
+
+    Owner: rag-datascientist@mm4.me
+    """
+
+    # ── Field definitions ──────────────────────────────────────────────────────
+    LEVEL_1_REQUIRED = [
+        "concern_id",
+        "concern_description",
+        "corrective_action",
+    ]
+
+    LEVEL_2_QUASI_REQUIRED = [
+        "department",
+        "product_line",
+    ]
+
+    LEVEL_3_OPTIONAL = [
+        "plant",
+        "severity",
+        "collection_point",
+        "charged_zone",
+        "resolved_at",
+        "mttr_minutes",
+    ]
+
+    def validate(self, record: dict) -> ValidationResult | None:
+        """
+        Validates field presence and basic quality.
+
+        Args:
+            record: dict with corrective action fields
+
+        Returns:
+            None if all Level 1 fields present and valid.
+            ValidationResult with is_valid=False if Level 1 fails.
+            Logs warnings for Level 2 missing fields.
+            Logs info for Level 3 missing fields.
+        """
+        concern_id = record.get("concern_id", "UNKNOWN")
+
+        # ── Level 1: Required — hard reject ───────────────────────────────
+        for required_field in self.LEVEL_1_REQUIRED:
+            value = record.get(required_field)
+            if not value or not str(value).strip():
+                logger.warning(
+                    f"[{concern_id}] FIELD REJECT L1: "
+                    f"Missing required field '{required_field}'. "
+                )
+                return ValidationResult(
+                    status=ValidationStatus.INVALID_TOO_SHORT,
+                    is_valid=False,
+                    score=0.0,
+                    reason=(
+                        f"Missing required field: '{required_field}'. "
+                        f"Level 1 fields are mandatory for embedding."
+                    ),
+                    original_text=str(record.get("corrective_action", "")),
+                    concern_id=concern_id
+                )
+
+        # ── Level 2: Quasi-required — warning, record still enters ─────────
+        missing_l2 = []
+        for quasi_field in self.LEVEL_2_QUASI_REQUIRED:
+            value = record.get(quasi_field)
+            if not value or not str(value).strip():
+                missing_l2.append(quasi_field)
+
+        if missing_l2:
+            logger.warning(
+                f"[{concern_id}] FIELD WARNING L2: "
+                f"Missing quasi-required fields: {missing_l2}. "
+                f"Record will enter AlloyDB but WON'T be retrievable "
+                f"by these hard filters. RAG quality degraded."
+            )
+
+        # ── Level 3: Optional — info log only ─────────────────────────────
+        missing_l3 = []
+        for optional_field in self.LEVEL_3_OPTIONAL:
+            value = record.get(optional_field)
+            if not value or not str(value).strip():
+                missing_l3.append(optional_field)
+
+        if missing_l3:
+            logger.info(
+                f"[{concern_id}] FIELD INFO L3: "
+                f"Missing optional fields: {missing_l3}. "
+                f"Record enters with NULL values. "
+                f"Enriched context will be incomplete."
+            )
+
+        return None  # All Level 1 fields present — proceed
 
 
 # ── Batch Helper ───────────────────────────────────────────────────────────────

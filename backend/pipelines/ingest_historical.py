@@ -165,18 +165,16 @@ async def insert_to_alloydb(
 
     insert_query = """
         INSERT INTO corrective_actions_vectors (
-            chunk_id,
             concern_id, plant, department,
             concern_description, corrective_action,
             severity, collection_point, product_line,
             charged_zone,
             chunk_text, embedding
         ) VALUES (
-            $1,
-            $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            $11, $12::vector
+            $1, $2, $3, $4, $5, $6, $7, $8, $9,
+            $10, $11::vector
         )
-        ON CONFLICT (chunk_id) DO NOTHING
+        ON CONFLICT DO NOTHING
     """
 
     inserted = 0
@@ -191,7 +189,6 @@ async def insert_to_alloydb(
 
                 await conn.execute(
                     insert_query,
-                    chunk_id,
                     record.get('concern_id'),
                     record.get('plant'),
                     record.get('department'),

@@ -27,7 +27,8 @@ from backend.config.settings import settings
 from backend.rag.corrective_action_validator import (
     validate_batch,
     ValidatorConfig,
-    ValidationResult
+    ValidationResult,
+    CorrectiveActionFieldValidator,
 )
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -284,8 +285,7 @@ async def run_pipeline():
     if not records:
         logger.error("No records passed field validation. Aborting.")
         return
-    
-    
+
     # ── Step 2: Validate (ADR-001) ─────────────────────────────────────────
     logger.info(f"Validating {len(records)} corrective actions (ADR-001)...")
     validator_config = ValidatorConfig(

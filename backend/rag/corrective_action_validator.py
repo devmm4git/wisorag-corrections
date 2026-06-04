@@ -24,7 +24,7 @@ import json
 import logging
 import re
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from typing import Optional
 
@@ -87,7 +87,7 @@ class ValidationResult:
     concern_id: str = ""
     detected_language: str = "unknown"
     rejection_level: Optional[RejectionLevel] = None
-    ai_response: Optional[dict] = field(default=None)
+    ai_response: Optional[dict] = dataclass_field(default=None)
 
     def to_api_response(self) -> dict:
         """Format for HTTP 422 API response (M3)."""
@@ -570,20 +570,19 @@ class CorrectiveActionFieldValidator:
         concern_id = record.get("concern_id", "UNKNOWN")
 
         # ── Level 1: Required — hard reject ───────────────────────────────
-        for field in self.LEVEL_1_REQUIRED:
-            value = record.get(field)
+        for required_field in self.LEVEL_1_REQUIRED:
+            value = record.get(required_field)
             if not value or not str(value).strip():
                 logger.warning(
                     f"[{concern_id}] FIELD REJECT L1: "
-                    f"Missing required field '{field}'. "
-                    f"Record cannot be embedded without it."
+                    f"Missing required field '{required_field}'. "
                 )
                 return ValidationResult(
                     status=ValidationStatus.INVALID_TOO_SHORT,
                     is_valid=False,
                     score=0.0,
                     reason=(
-                        f"Missing required field: '{field}'. "
+                        f"Missing required field: '{required_field}'. "
                         f"Level 1 fields are mandatory for embedding."
                     ),
                     original_text=str(record.get("corrective_action", "")),
@@ -592,10 +591,10 @@ class CorrectiveActionFieldValidator:
 
         # ── Level 2: Quasi-required — warning, record still enters ─────────
         missing_l2 = []
-        for field in self.LEVEL_2_QUASI_REQUIRED:
-            value = record.get(field)
+        for quasi_field in self.LEVEL_2_QUASI_REQUIRED:
+            value = record.get(quasi_field)
             if not value or not str(value).strip():
-                missing_l2.append(field)
+                missing_l2.append(quasi_field)
 
         if missing_l2:
             logger.warning(
@@ -607,10 +606,10 @@ class CorrectiveActionFieldValidator:
 
         # ── Level 3: Optional — info log only ─────────────────────────────
         missing_l3 = []
-        for field in self.LEVEL_3_OPTIONAL:
-            value = record.get(field)
+        for optional_field in self.LEVEL_3_OPTIONAL:
+            value = record.get(optional_field)
             if not value or not str(value).strip():
-                missing_l3.append(field)
+                missing_l3.append(optional_field)
 
         if missing_l3:
             logger.info(
@@ -621,8 +620,8 @@ class CorrectiveActionFieldValidator:
             )
 
         return None  # All Level 1 fields present — proceed
-    
-    
+
+
 # ── Batch Helper ───────────────────────────────────────────────────────────────
 async def validate_batch(
     records: list[dict],

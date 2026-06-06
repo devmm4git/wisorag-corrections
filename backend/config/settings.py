@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     max_chunk_size: int = 512
     chunk_overlap: int = 50
 
+    # Server
+    port: int = 8080
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -1,0 +1,77 @@
+# ── WISO-AI — Cloud Build CI/CD pipeline ─────────────────────────────────
+# Triggered on push to develop (staging) and main (prod)
+# Builds Docker image → pushes to Artifact Registry → deploys to Cloud Run
+
+steps:
+  # Step 1 — Run flake8 linting
+  - name: python:3.11-slim
+    id: lint
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        pip install flake8 --quiet
+        flake8 backend/ --max-line-length=100 --exclude=__pycache__,.venv
+
+  # Step 2 — Run unit tests
+  - name: python:3.11-slim
+    id: test
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        pip install -r requirements.txt --quiet
+        pip install pytest pytest-asyncio httpx --quiet
+        pytest backend/tests/ -v --tb=short
+    waitFor: [lint]
+
+  # Step 3 — Build Docker image
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args:
+      - build
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/wiso-ai/wiso-ai-api:$COMMIT_SHA
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/wiso-ai/wiso-ai-api:latest
+      - .
+    waitFor: [test]
+
+  # Step 4 — Push to Artifact Registry
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    args:
+      - push
+      - --all-tags
+      - us-central1-docker.pkg.dev/$PROJECT_ID/wiso-ai/wiso-ai-api
+    waitFor: [build]
+
+  # Step 5 — Deploy to Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - wiso-ai-api
+      - --image=us-central1-docker.pkg.dev/$PROJECT_ID/wiso-ai/wiso-ai-api:$COMMIT_SHA
+      - --region=us-central1
+      - --platform=managed
+      - --no-allow-unauthenticated
+      - --service-account=rag-api-sa@$PROJECT_ID.iam.gserviceaccount.com
+      - --set-env-vars=ENVIRONMENT=dev
+      - --set-secrets=ALLOYDB_PASSWORD=ALLOYDB_PRIMARY_PASSWORD:latest
+      - --vpc-connector=wiso-ai-vpc-connector
+      - --min-instances=1
+      - --max-instances=10
+      - --memory=2Gi
+      - --cpu=2
+      - --timeout=60
+      - --concurrency=80
+    waitFor: [push]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION: us-central1

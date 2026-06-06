@@ -35,3 +35,16 @@ async def close_pools():
         await _write_pool.close()
         _write_pool = None
         logger.info("AlloyDB pools closed")
+
+
+async def check_connection() -> None:
+    """Ping AlloyDB to verify connectivity. Raises on failure.
+
+    Used by the health check endpoint.
+
+    Raises:
+        Exception: If the connection pool is unavailable or query fails.
+    """
+    pool = await get_write_pool()
+    async with pool.acquire() as conn:
+        await conn.fetchval("SELECT 1")

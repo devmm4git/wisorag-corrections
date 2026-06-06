@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 
-client = TestClient(app)
+client = TestClient(app=app)
 
 VALID_PAYLOAD = {
     "concern_id": "C_20240508_001",

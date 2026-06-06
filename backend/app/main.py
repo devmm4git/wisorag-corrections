@@ -10,7 +10,7 @@ import logging
 
 from fastapi import FastAPI
 
-from backend.app.routers import health
+from backend.app.routers import health, corrective_actions
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,6 +32,7 @@ app = FastAPI(
 
 # ── Routers ───────────────────────────────────────────────────────────────
 app.include_router(health.router)
+app.include_router(corrective_actions.router)
 # Task 3.2 → corrective_actions.ingest
 # Task 3.3 → corrective_actions.search
 # Task 3.4 → corrective_actions.feedback

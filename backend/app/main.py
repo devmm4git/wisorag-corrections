@@ -10,7 +10,7 @@ import logging
 
 from fastapi import FastAPI
 
-from backend.app.routers import health, corrective_actions
+from backend.app.routers import health, corrective_actions, search
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,9 +32,10 @@ app = FastAPI(
 
 # ── Routers ───────────────────────────────────────────────────────────────
 app.include_router(health.router)
-app.include_router(corrective_actions.router)
 # Task 3.2 → corrective_actions.ingest
+app.include_router(corrective_actions.router)
 # Task 3.3 → corrective_actions.search
+app.include_router(search.router)
 # Task 3.4 → corrective_actions.feedback
 
 logger.info("WISO-AI API started — Swagger at /docs")

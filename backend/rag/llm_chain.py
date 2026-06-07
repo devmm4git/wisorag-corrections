@@ -63,7 +63,7 @@ def call_gemini(prompt: str) -> tuple[str, int]:
     client = genai.Client(
         vertexai=True,
         project=settings.vertex_ai_project,
-        location=settings.vertex_ai_location,
+        location="global",
     )
 
     start = time.monotonic()

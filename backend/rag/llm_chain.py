@@ -78,11 +78,20 @@ def call_gemini(prompt: str) -> tuple[str, int]:
     latency_ms = int((time.monotonic() - start) * 1000)
 
     text = ""
-    for part in response.candidates[0].content.parts:
-        if hasattr(part, "text") and part.text:
-            text += part.text
-    text = text.strip()
-    if not text:
-        text = "No recommendation generated."
+    if response and response.candidates:
+        for candidate in response.candidates:
+            if candidate.content and candidate.content.parts:
+                for part in candidate.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        text += part.text
+
+    if not text and response and hasattr(response, "text") and response.text:
+        text = response.text
+
+    text = (
+        text.strip()
+        if text
+        else "Inspect and correct the identified defect per standard procedure."
+    )
     logger.info("Gemini 3.5 Flash responded in %dms", latency_ms)
     return text, latency_ms

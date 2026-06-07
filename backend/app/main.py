@@ -11,6 +11,7 @@ import logging
 from fastapi import FastAPI
 
 from backend.app.routers import health, corrective_actions, search, feedback
+from backend.app.routers.recommend import router as recommend_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,5 +39,6 @@ app.include_router(corrective_actions.router)
 app.include_router(search.router)
 # Task 3.4 → corrective_actions.feedback
 app.include_router(feedback.router)
+app.include_router(recommend_router)
 
 logger.info("WISO-AI API started — Swagger at /docs")

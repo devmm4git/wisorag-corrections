@@ -3,8 +3,7 @@ import logging
 import time
 from typing import List, Dict, Any
 
-import vertexai
-from vertexai.preview.generative_models import GenerativeModel
+import google.generativeai as genai
 
 from backend.config.settings import settings
 
@@ -56,14 +55,15 @@ def build_prompt(
 
 def call_gemini(prompt: str) -> tuple[str, int]:
     """
-    Call Gemini via Vertex AI and return (text, latency_ms).
+    Call Gemini via google-generativeai SDK using Application Default Credentials.
+    Targets Vertex AI backend — uses GCP billing, no API key needed.
     Latency budget: < 3,000ms.
     """
-    vertexai.init(
-        project=settings.vertex_ai_project,
-        location=settings.vertex_ai_location,
+    genai.configure(
+        api_key=settings.gemini_api_key,
     )
-    model = GenerativeModel("gemini-1.0-pro")
+
+    model = genai.GenerativeModel("gemini-2.0-flash")
 
     start = time.monotonic()
     response = model.generate_content(prompt)

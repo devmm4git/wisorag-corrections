@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     environment: str = "dev"
     log_level: str = "INFO"
 
+    # Gemini API
+    gemini_api_key: str = ""
+
     # AlloyDB
     alloydb_host: str = "10.187.0.2"
     alloydb_port: int = 5432

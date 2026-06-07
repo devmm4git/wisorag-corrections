@@ -37,6 +37,8 @@ class SourceItem(BaseModel):
     similarity: float
     effective_score: float
     resolution_time_min: Optional[int] = None
+    concern_description: Optional[str] = None
+    corrective_action: Optional[str] = None
 
 
 class RecommendResponse(BaseModel):

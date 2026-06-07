@@ -30,7 +30,7 @@ async def recommend(payload: RecommendRequest) -> RecommendResponse:
     # Step 2: retrieve similar historical cases
     try:
         results = await search_similar(
-            embedding=query_embedding,
+            query_vector=query_embedding,
             department=payload.department,
             product_line=payload.product_line,
             top_k=5,

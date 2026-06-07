@@ -63,7 +63,7 @@ def call_gemini(prompt: str) -> tuple[str, int]:
         project=settings.vertex_ai_project,
         location=settings.vertex_ai_location,
     )
-    model = GenerativeModel("gemini-pro")
+    model = GenerativeModel("gemini-1.0-pro")
 
     start = time.monotonic()
     response = model.generate_content(prompt)

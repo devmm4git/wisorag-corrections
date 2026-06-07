@@ -7,6 +7,7 @@ sqlalchemy==2.0.23
 google-cloud-bigquery==3.13.0
 google-cloud-aiplatform==1.38.1
 google-cloud-secret-manager==2.17.0
+google-genai>=1.0.0
 
 # API Framework
 fastapi==0.104.1
@@ -16,7 +17,6 @@ pydantic-settings==2.1.0
 
 # RAG
 langchain==0.0.350
-langchain-google-vertexai==0.0.1
 
 # Testing
 pytest==7.4.3
@@ -27,5 +27,3 @@ locust==2.19.1
 python-dotenv==1.0.0
 tenacity==8.2.3
 structlog==23.2.0
-
-google-generativeai==0.8.3

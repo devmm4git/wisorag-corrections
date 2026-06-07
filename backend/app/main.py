@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from backend.app.routers import health, corrective_actions, search, feedback
 from backend.app.routers.recommend import router as recommend_router
+from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +31,16 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+
+# ── CORS ──────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ── Routers ───────────────────────────────────────────────────────────────
 app.include_router(health.router)

@@ -66,12 +66,14 @@ def call_gemini(prompt: str) -> tuple[str, int]:
         location="global",
     )
 
+    logger.info("Gemini prompt (first 500 chars): %s", prompt[:500])
+
     start = time.monotonic()
     response = client.models.generate_content(
         model="gemini-3.5-flash",
         contents=prompt,
         config=types.GenerateContentConfig(
-            max_output_tokens=512,
+            max_output_tokens=8192,
             temperature=0.3,
         ),
     )

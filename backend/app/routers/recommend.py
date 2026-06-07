@@ -67,6 +67,8 @@ async def recommend(payload: RecommendRequest) -> RecommendResponse:
             similarity=round(r.get("similarity", 0.0), 4),
             effective_score=round(r.get("effective_score", 0.0), 4),
             resolution_time_min=r.get("mttr_minutes"),
+            concern_description=r.get("concern_description"),
+            corrective_action=r.get("corrective_action"),
         )
         for r in results
     ]

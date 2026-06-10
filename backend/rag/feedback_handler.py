@@ -22,7 +22,7 @@ ACCEPT_SQL = """
     SET accept_count = accept_count + 1,
         feedback_score = (accept_count + 1.0) / (accept_count + reject_count + 1),
         updated_at = NOW()
-    WHERE concern_id = $1
+    WHERE id = $1
     RETURNING id, feedback_score;
 """
 
@@ -31,7 +31,7 @@ REJECT_SQL = """
     SET reject_count = reject_count + 1,
         feedback_score = accept_count / (accept_count + reject_count + 1.0),
         updated_at = NOW()
-    WHERE concern_id = $1
+    WHERE id = $1
     RETURNING id, feedback_score;
 """
 
@@ -53,11 +53,11 @@ INSERT_MODIFIED_SQL = """
 """
 
 
-async def apply_accept(concern_id: str) -> dict:
+async def apply_accept(alloydb_id: int) -> dict:
     """Apply ACCEPT feedback — increment accept_count, recalculate feedback_score.
 
     Args:
-        concern_id: The concern ID to update.
+        alloydb_id: PK id of the AlloyDB record to update.
 
     Returns:
         dict: Updated record id and new feedback_score.
@@ -68,24 +68,24 @@ async def apply_accept(concern_id: str) -> dict:
     pool = await get_write_pool()
     try:
         async with pool.acquire() as conn:
-            rows = await conn.fetch(ACCEPT_SQL, concern_id)
+            rows = await conn.fetch(ACCEPT_SQL, alloydb_id)
         if not rows:
-            raise RuntimeError(f"concern_id not found in AlloyDB: {concern_id}")
+            raise RuntimeError(f"alloydb_id not found in AlloyDB: {alloydb_id}")
         logger.info(
-            "ACCEPT applied — concern_id=%s feedback_score=%.4f",
-            concern_id, rows[0]["feedback_score"],
+            "ACCEPT applied — alloydb_id=%s feedback_score=%.4f",
+            alloydb_id, rows[0]["feedback_score"],
         )
         return {"id": rows[0]["id"], "feedback_score": rows[0]["feedback_score"]}
     except Exception as exc:
-        logger.error("ACCEPT failed — concern_id=%s error=%s", concern_id, exc)
+        logger.error("ACCEPT failed — alloydb_id=%s error=%s", alloydb_id, exc)
         raise RuntimeError(f"AlloyDB UPDATE failed: {exc}") from exc
 
 
-async def apply_reject(concern_id: str) -> dict:
+async def apply_reject(alloydb_id: int) -> dict:
     """Apply REJECT feedback — increment reject_count, recalculate feedback_score.
 
     Args:
-        concern_id: The concern ID to update.
+        alloydb_id: PK id of the AlloyDB record to update.
 
     Returns:
         dict: Updated record id and new feedback_score.
@@ -96,16 +96,16 @@ async def apply_reject(concern_id: str) -> dict:
     pool = await get_write_pool()
     try:
         async with pool.acquire() as conn:
-            rows = await conn.fetch(REJECT_SQL, concern_id)
+            rows = await conn.fetch(REJECT_SQL, alloydb_id)
         if not rows:
-            raise RuntimeError(f"concern_id not found in AlloyDB: {concern_id}")
+            raise RuntimeError(f"alloydb_id not found in AlloyDB: {alloydb_id}")
         logger.info(
-            "REJECT applied — concern_id=%s feedback_score=%.4f",
-            concern_id, rows[0]["feedback_score"],
+            "REJECT applied — alloydb_id=%s feedback_score=%.4f",
+            alloydb_id, rows[0]["feedback_score"],
         )
         return {"id": rows[0]["id"], "feedback_score": rows[0]["feedback_score"]}
     except Exception as exc:
-        logger.error("REJECT failed — concern_id=%s error=%s", concern_id, exc)
+        logger.error("REJECT failed — alloydb_id=%s error=%s", alloydb_id, exc)
         raise RuntimeError(f"AlloyDB UPDATE failed: {exc}") from exc
 
 
@@ -115,9 +115,6 @@ async def apply_modify(
     coach_cds_id: str,
 ) -> str:
     """Apply MODIFY feedback — insert new record with fresh embedding.
-
-    Generates a new 768-dim embedding for modified_text via Vertex AI,
-    then inserts a new row in corrective_actions_vectors with feedback_score = 1.0.
 
     Args:
         concern_id: The original concern ID. Used to copy metadata.
@@ -130,7 +127,6 @@ async def apply_modify(
     Raises:
         RuntimeError: If embedding generation or AlloyDB INSERT fails.
     """
-    # Generate fresh embedding for modified text
     try:
         vector = await embed_query(modified_text)
     except RuntimeError as exc:
@@ -164,18 +160,7 @@ async def log_feedback_to_bigquery(
     chunk_ids: list[str],
     modified_text: Optional[str] = None,
 ) -> None:
-    """Log feedback event to BigQuery feedback_log.
-
-    Args:
-        request_id: Original request ID from /ai/recommend.
-        concern_id: Concern identifier.
-        coach_cds_id: Coach employee ID.
-        action: ACCEPT / REJECT / MODIFY.
-        chunk_ids: List of chunk IDs shown to the coach.
-        modified_text: Modified text for MODIFY action. None otherwise.
-    """
-    # BigQuery logging — placeholder for M3 implementation
-    # In production: use google-cloud-bigquery client to INSERT into feedback_log
+    """Log feedback event to BigQuery feedback_log."""
     logger.info(
         "BigQuery log — request_id=%s concern_id=%s coach=%s action=%s",
         request_id, concern_id, coach_cds_id, action,

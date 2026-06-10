@@ -25,6 +25,7 @@ class FeedbackRequest(BaseModel):
     """Request model for POST /corrective-actions/feedback."""
 
     request_id: str = Field(..., description="request_id returned by /ai/recommend.")
+    alloydb_id: int = Field(..., description="PK id of the specific AlloyDB record to update.")
     chunk_ids: list[str] = Field(
         ..., description="chunk_id values shown to the coach. One per source document."
     )

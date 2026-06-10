@@ -32,7 +32,7 @@ class RecommendRequest(BaseModel):
 
 class SourceItem(BaseModel):
     """A single historical case used as source for the recommendation."""
-
+    alloydb_id: int          # ← PK único de AlloyDB
     chunk_id: str
     similarity: float
     effective_score: float

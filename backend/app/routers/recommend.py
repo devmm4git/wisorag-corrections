@@ -63,6 +63,7 @@ async def recommend(payload: RecommendRequest) -> RecommendResponse:
     # Step 4: build sources list + confidence_score
     sources = [
         SourceItem(
+            alloydb_id=r.get("alloydb_id", 0),
             chunk_id=r.get("concern_id", "unknown"),
             similarity=round(r.get("similarity", 0.0), 4),
             effective_score=round(r.get("effective_score", 0.0), 4),

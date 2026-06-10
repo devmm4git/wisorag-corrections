@@ -69,10 +69,10 @@ async def record_feedback(request: FeedbackRequest) -> FeedbackResponse:
 
     try:
         if request.action == FeedbackAction.ACCEPT:
-            await apply_accept(request.concern_id)
+            await apply_accept(request.alloydb_id)
 
         elif request.action == FeedbackAction.REJECT:
-            await apply_reject(request.concern_id)
+            await apply_reject(request.alloydb_id)
 
         elif request.action == FeedbackAction.MODIFY:
             new_chunk_id = await apply_modify(

@@ -412,9 +412,9 @@ Respond with ONLY valid JSON (no markdown, no explanation):
                     config=genai_types.GenerateContentConfig(
                         max_output_tokens=256,
                         temperature=0.1,
-                        thinking_config=genai_types.ThinkingConfig(
-                            thinking_budget=0,
-                        ),
+                        # thinking_config=genai_types.ThinkingConfig(
+                        #     thinking_budget=0,
+                        # ),
                     ),
                 ),
                 timeout=self.config.ai_timeout_seconds

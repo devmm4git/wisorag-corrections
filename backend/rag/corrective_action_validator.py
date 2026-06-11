@@ -1,13 +1,13 @@
 """
 WISO-AI — Corrective Action Quality Validator
 ADR-001 v2: Language-agnostic, AI-first, scalable validator.
-Last updated: M2 Sprint 1 — May 2026
+Last updated: M4 Sprint 1 — June 2026
 Reviewed by: wmssaas-project
 
 Design principles:
 - No hardcoded word lists (fragile, language-specific)
 - Statistical signals for fast pre-filtering (Level 1)
-- Gemini Pro as semantic judge (Level 2)
+- Gemini 2.5 Flash as semantic judge (Level 2)
 - Only universal business rules hardcoded (Level 3)
 - Fully async, configurable thresholds
 - Multilingual by design (EN, ES, PT, FR, ZH, etc.)
@@ -215,7 +215,7 @@ class CorrectiveActionValidator:
 
     Architecture:
         Level 1 (Statistical) → fast, free, no AI
-        Level 2 (AI Semantic) → Gemini Pro, configurable
+        Level 2 (AI Semantic) → Gemini 2.5 Flash, configurable
         Level 3 (Business)    → universal rules only
 
     Example:
@@ -235,17 +235,20 @@ class CorrectiveActionValidator:
         self._ai_model = None
 
     def _load_ai_model(self):
-        """Lazy-load Gemini Pro. Fails gracefully."""
+        """Lazy-load google-genai client for Vertex AI."""
         if self._ai_model:
             return self._ai_model
         try:
-            import vertexai
-            from vertexai.generative_models import GenerativeModel
-            vertexai.init()
-            self._ai_model = GenerativeModel("gemini-pro")
-            logger.info("Gemini Pro loaded for CA validation")
+            from google import genai
+            from backend.config.settings import settings
+            self._ai_model = genai.Client(
+                vertexai=True,
+                project=settings.vertex_ai_project,
+                location="global",
+            )
+            logger.info("google-genai client loaded for CA validation")
         except Exception as e:
-            logger.warning(f"Gemini Pro unavailable: {e}")
+            logger.warning(f"google-genai unavailable: {e}")
             self._ai_model = None
         return self._ai_model
 
@@ -352,15 +355,15 @@ class CorrectiveActionValidator:
         concern_description: str
     ) -> Optional[ValidationResult]:
         """
-        Gemini Pro semantic validation.
+        Gemini 2.5 Flash semantic validation via google-genai SDK.
         Multilingual prompt — responds regardless of input language.
         Returns None if valid, ValidationResult if rejected.
         """
         if not self.config.ai_enabled:
             return None
 
-        model = self._load_ai_model()
-        if not model:
+        client = self._load_ai_model()
+        if not client:
             logger.warning("AI model unavailable — skipping Level 2")
             return None
 
@@ -400,11 +403,30 @@ Respond with ONLY valid JSON (no markdown, no explanation):
 }}"""
 
         try:
+            from google.genai import types as genai_types
             response = await asyncio.wait_for(
-                asyncio.to_thread(model.generate_content, prompt),
+                asyncio.to_thread(
+                    client.models.generate_content,
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=genai_types.GenerateContentConfig(
+                        max_output_tokens=256,
+                        temperature=0.1,
+                        thinking_config=genai_types.ThinkingConfig(
+                            thinking_budget=0,
+                        ),
+                    ),
+                ),
                 timeout=self.config.ai_timeout_seconds
             )
-            raw = response.text.strip()
+            raw = ""
+            if response and response.candidates:
+                for candidate in response.candidates:
+                    if candidate.content and candidate.content.parts:
+                        for part in candidate.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                raw += part.text
+            raw = raw.strip()
             raw = re.sub(r"```json|```", "", raw).strip()
             data = json.loads(raw)
 
@@ -429,7 +451,7 @@ Respond with ONLY valid JSON (no markdown, no explanation):
 
         except asyncio.TimeoutError:
             logger.warning(
-                f"Gemini Pro timeout after {self.config.ai_timeout_seconds}s. "
+                f"Gemini timeout after {self.config.ai_timeout_seconds}s. "
                 f"Skipping AI validation."
             )
             return None
@@ -525,47 +547,8 @@ class CorrectiveActionFieldValidator:
     ├── charged_zone        → team responsibility context
     ├── resolved_at         → when the concern was resolved
     └── mttr_minutes        → Mean Time To Resolve
-
-    L1 — EMBEDDING (el corazón del RAG)
-    │
-    │   chunk_text = "Concern: [concern_description]
-    │                 Corrective Action: [corrective_action]"
-    │                         ↓
-    │               Vertex AI text-embedding-004
-    │                         ↓
-    │               vector(768) → AlloyDB
-    │
-    │   Sin L1 → NO hay vector → NO hay RAG → rechazo duro ❌
-
-    L2 — FILTROS DUROS (la precisión del RAG)
-    │
-    │   WHERE department = 'PAINT'      ← sin esto busca en TODO
-    │   AND product_line = 'RANGER'     ← sin esto mezcla modelos
-    │
-    │   Sin L2 → el registro existe pero NUNCA aparece
-    │             en búsquedas filtradas → inútil en producción ⚠️
-
-    L3 — CONTEXTO ENRIQUECIDO (la calidad de la respuesta)
-    │
-    │   El LLM (Gemini) usa estos datos para generar
-    │   una respuesta más rica al coach:
-    │
-    │   "Esta solución fue aplicada en planta MAP,
-    │    estación 165-Q, tardó 18 minutos en resolverse,
-    │    severidad A — aplica directamente a tu caso"
-    │
-    │   Sin L3 → la respuesta funciona pero es menos específica
-    │   Con L3 → la respuesta es más contextualizada y útil ✅
-
-    -----------------------------------------------------------------------
-    Used by:
-      - backend/pipelines/ingest_historical.py  (Pipeline 1 — BigQuery)
-      - backend/app/routers/corrective_actions.py (M3 — new CA endpoint)
-
-    Owner: rag-datascientist@mm4.me
     """
 
-    # ── Field definitions ──────────────────────────────────────────────────────
     LEVEL_1_REQUIRED = [
         "concern_id",
         "concern_description",
@@ -590,14 +573,9 @@ class CorrectiveActionFieldValidator:
         """
         Validates field presence and basic quality.
 
-        Args:
-            record: dict with corrective action fields
-
         Returns:
             None if all Level 1 fields present and valid.
             ValidationResult with is_valid=False if Level 1 fails.
-            Logs warnings for Level 2 missing fields.
-            Logs info for Level 3 missing fields.
         """
         concern_id = record.get("concern_id", "UNKNOWN")
 
@@ -607,10 +585,10 @@ class CorrectiveActionFieldValidator:
             if not value or not str(value).strip():
                 logger.warning(
                     f"[{concern_id}] FIELD REJECT L1: "
-                    f"Missing required field '{required_field}'. "
+                    f"Missing required field '{required_field}'."
                 )
                 return ValidationResult(
-                    status=ValidationStatus.INVALID_TOO_SHORT,
+                    status=ValidationStatus.REJECTED_TOO_SHORT,
                     is_valid=False,
                     score=0.0,
                     reason=(
@@ -647,8 +625,7 @@ class CorrectiveActionFieldValidator:
             logger.info(
                 f"[{concern_id}] FIELD INFO L3: "
                 f"Missing optional fields: {missing_l3}. "
-                f"Record enters with NULL values. "
-                f"Enriched context will be incomplete."
+                f"Record enters with NULL values."
             )
 
         return None  # All Level 1 fields present — proceed
@@ -662,12 +639,6 @@ async def validate_batch(
     """
     Validate a batch of records concurrently.
     Returns (valid_records, rejected_results)
-
-    Usage:
-        valid, rejected = await validate_batch(records)
-        logger.info(f"Valid: {len(valid)}, Rejected: {len(rejected)}")
-        for r in rejected:
-            logger.warning(f"Rejected {r.concern_id}: {r.reason}")
     """
     validator = CorrectiveActionValidator(config=config)
 

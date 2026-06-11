@@ -410,7 +410,7 @@ Respond with ONLY valid JSON (no markdown, no explanation):
                     model="gemini-2.5-flash",
                     contents=prompt,
                     config=genai_types.GenerateContentConfig(
-                        max_output_tokens=256,
+                        max_output_tokens=1024,
                         temperature=0.1,
                         # thinking_config=genai_types.ThinkingConfig(
                         #     thinking_budget=0,

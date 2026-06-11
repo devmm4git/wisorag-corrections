@@ -70,14 +70,11 @@ def call_gemini(prompt: str) -> tuple[str, int]:
 
     start = time.monotonic()
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         contents=prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=8192,
             temperature=0.3,
-            thinking_config=types.ThinkingConfig(
-                thinking_budget=0  # ← disble thinking
-            ),
         ),
     )
     latency_ms = int((time.monotonic() - start) * 1000)

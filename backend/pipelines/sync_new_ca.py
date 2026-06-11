@@ -125,9 +125,9 @@ async def insert_single_record(
             concern_id, plant, department,
             concern_description, corrective_action,
             severity, collection_point, product_line,
-            charged_zone, chunk_text, embedding
+            charged_zone, chunk_text, embedding, feedback_score
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::vector
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::vector, 1.0
         )
         ON CONFLICT DO NOTHING
         RETURNING id

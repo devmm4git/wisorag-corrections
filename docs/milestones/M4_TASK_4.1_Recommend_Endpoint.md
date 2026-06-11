@@ -6,7 +6,7 @@
 > **Task:** 4.1 — Backend: Gemini LLM Recommend Endpoint  
 > **Branch:** `feat/m4-task-4.1-recommend-endpoint`  
 > **Estado:** ✅ COMPLETADO  
-> **Fecha:** Junio 2026  
+> **Fecha:** Junio 2026
 
 ---
 
@@ -70,33 +70,33 @@ POST /ai/recommend
 ```
 React/SwiftUI → POST /ai/recommend
     ↓
-embed_query(concern_description)          ← retriever.py (existente)
+embed_query(concern_description)          ← retriever.py (existente) ~100ms  ← Vertex AI converts text to a 768-dims vector
     ↓
-search_similar(dept, product_line, top_k=5)  ← retriever.py (existente)
+search_similar(dept, product_line, top_k=5)  ← retriever.py (existente) ~100ms  ← AlloyDB finds the 5 most similar cases by cosine
     ↓
-build_prompt(concern, top_k_results)      ← llm_chain.py (nuevo)
+build_prompt(concern, top_k_results)      ← llm_chain.py (nuevo) ~0ms    ← Python build prompt with  5 top
     ↓
-Gemini LLM via Vertex AI                  ← llm_chain.py (nuevo)
+Gemini LLM via Vertex AI                  ← llm_chain.py (nuevo) ~5000ms ← Gemini read prompt and create recomendation
     ↓
-200 OK → RecommendResponse
+200 OK → RecommendResponse ~0ms    ← FastAPI return JSON
 ```
 
 ---
 
 ## Archivos creados
 
-| Archivo | Descripción |
-|---|---|
-| `backend/app/models/recommend.py` | Pydantic models: `RecommendRequest`, `RecommendResponse`, `SourceItem` |
-| `backend/rag/llm_chain.py` | Gemini call + prompt builder (`build_prompt`, `call_gemini`) |
-| `backend/app/routers/recommend.py` | FastAPI router — orquesta retriever + LLM chain |
-| `backend/tests/test_recommend_endpoint.py` | 6 unit tests con mocks |
+| Archivo                                    | Descripción                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| `backend/app/models/recommend.py`          | Pydantic models: `RecommendRequest`, `RecommendResponse`, `SourceItem` |
+| `backend/rag/llm_chain.py`                 | Gemini call + prompt builder (`build_prompt`, `call_gemini`)           |
+| `backend/app/routers/recommend.py`         | FastAPI router — orquesta retriever + LLM chain                        |
+| `backend/tests/test_recommend_endpoint.py` | 6 unit tests con mocks                                                 |
 
 ### Modificaciones
 
-| Archivo | Cambio |
-|---|---|
-| `backend/app/main.py` | Registro del nuevo router: `app.include_router(recommend_router)` |
+| Archivo                    | Cambio                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `backend/app/main.py`      | Registro del nuevo router: `app.include_router(recommend_router)`                                             |
 | `backend/rag/llm_chain.py` | Import corregido: `vertexai.preview.generative_models` (compatibilidad con `google-cloud-aiplatform==1.38.1`) |
 
 ---
@@ -136,13 +136,13 @@ End with: "Based on {N} similar cases in {department}."
 
 ## Latency Budget
 
-| Componente | Target |
-|---|---|
-| `embed_query` (Vertex AI) | < 100ms |
-| `search_similar` (AlloyDB HNSW) | < 100ms |
-| Gemini LLM generation | < 3,000ms |
-| API overhead | < 200ms |
-| **TOTAL end-to-end** | **< 5,000ms** |
+| Componente                      | Target        |
+| ------------------------------- | ------------- |
+| `embed_query` (Vertex AI)       | < 100ms       |
+| `search_similar` (AlloyDB HNSW) | < 100ms       |
+| Gemini LLM generation           | < 3,000ms     |
+| API overhead                    | < 200ms       |
+| **TOTAL end-to-end**            | **< 5,000ms** |
 
 ---
 
@@ -162,6 +162,7 @@ test_recommend_gemini_failure             PASSED
 ```
 
 **Estrategia de mocks:**
+
 - `embed_query` → `AsyncMock` retorna vector `[0.1] * 768`
 - `search_similar` → `AsyncMock` retorna lista de resultados simulados
 - `call_gemini` → `Mock` retorna `(texto, latency_ms)`
@@ -170,13 +171,13 @@ test_recommend_gemini_failure             PASSED
 
 ## Error Handling
 
-| Escenario | HTTP Code | Detalle |
-|---|---|---|
-| `embed_query` falla | `502` | `"Embedding service unavailable"` |
-| `search_similar` falla | `502` | `"Vector search failed"` |
-| Sin resultados similares | `404` | `"No similar historical cases found"` |
-| Gemini falla | `502` | `"LLM service unavailable"` |
-| Request inválido | `422` | Validación Pydantic automática |
+| Escenario                | HTTP Code | Detalle                               |
+| ------------------------ | --------- | ------------------------------------- |
+| `embed_query` falla      | `502`     | `"Embedding service unavailable"`     |
+| `search_similar` falla   | `502`     | `"Vector search failed"`              |
+| Sin resultados similares | `404`     | `"No similar historical cases found"` |
+| Gemini falla             | `502`     | `"LLM service unavailable"`           |
+| Request inválido         | `422`     | Validación Pydantic automática        |
 
 ---
 
@@ -229,5 +230,5 @@ Con `POST /ai/recommend` live, se desbloquean en **paralelo**:
 
 ---
 
-*Documento generado al cierre de Task 4.1 — Junio 2026*  
-*Owner: rag-sp@mm4.me | Proyecto: WISO-AI / IPQ-AI*
+_Documento generado al cierre de Task 4.1 — Junio 2026_  
+_Owner: rag-sp@mm4.me | Proyecto: WISO-AI / IPQ-AI_

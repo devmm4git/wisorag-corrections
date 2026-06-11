@@ -14,6 +14,7 @@ client = TestClient(app=app)
 
 VALID_ACCEPT = {
     "request_id": "req_20240508_131523_abc123",
+    "alloydb_id": 17,
     "chunk_ids": ["MAP_PAINT_RANGER_20241101_C003"],
     "action": "ACCEPT",
     "coach_cds_id": "CDS12345",

@@ -70,7 +70,7 @@ def call_gemini(prompt: str) -> tuple[str, int]:
 
     start = time.monotonic()
     response = client.models.generate_content(
-        model="gemini-3.5-flash",
+        model="gemini-2.5-flash",
         contents=prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=8192,

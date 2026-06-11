@@ -1,6 +1,27 @@
 # GCP Commands
 
+**Validate Models Available**
+
+**Visit** : https://console.cloud.google.com/vertex-ai/model-garden?project=ragai-staging
+
+Or **execute in terminal**
+
+All models with response `200` are available
+
+```
+for model in gemini-2.5-flash gemini-2.5-flash-lite gemini-2.5-pro gemini-2.0-flash gemini-2.0-flash-lite gemini-2.0-pro gemini-1.5-flash gemini-1.5-flash-8b gemini-1.5-pro gemini-3.5-flash gemini-3.1-pro-preview gemini-3.1-flash gemini-3.1-flash-lite; do
+  code=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST \
+    -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+    -H "Content-Type: application/json" \
+    -d '{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}' \
+    "https://aiplatform.googleapis.com/v1beta1/projects/ragai-staging/locations/global/publishers/google/models/${model}:generateContent")
+  echo "$model: $code"
+done
+```
+
 **Build + Deploy + IAM:**
+Run in terminal
 
 ```
 cd ~/Documents/Work/Devops/wiso-rag/wisorag-corrections
